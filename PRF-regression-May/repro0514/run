@@ -1,0 +1,20 @@
+#!/bin/bash
+
+#SBATCH --partition=main               # Partition
+#SBATCH --requeue                      # Return job to the queue if preempted
+#SBATCH --job-name=repro            # Job name
+#SBATCH --nodes=1                      # How many nodes
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=4000                      # Memory in MB
+#SBATCH --time=72:00:00                # Run time limit, 72 hours at most
+#SBATCH --output=out/slurm.%A.%a.out   # Output file
+#SBATCH --export=ALL
+#SBATCH -a 0-250                        # tasks to run, you may need to change the 8 here
+
+cd ~/projects2024/repro0514 # Change to your project directory
+
+echo ${SLURM_ARRAY_TASK_ID}
+srun Rscript --vanilla ./src/main.R< ./input/input.${SLURM_ARRAY_TASK_ID}
+
+
