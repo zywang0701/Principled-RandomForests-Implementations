@@ -1,0 +1,122 @@
+---
+title: 'PRF: Estimation Comparison'
+output:
+  html_document:
+    df_print: paged
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+In this notebook, we shall compare the point estimates of the conditional mean $\mu(x) = E[Y_i|X_i=x]$ for three different methods: Principled Random Forests (PRF), Post-selection Decision Tree (Post), and the existing RF (RF).
+
+The setting is the same as the illustration Example 1 in the main article, and we will focus on three different evaluation points $x_0$. All all values of $x_0$, it holds that $\mu(x_0) = -0.2$. 
+
+```{r}
+library(ggplot2)
+library(reshape2)
+library(ggpubr)
+library(latex2exp)
+
+## Evaluation Points
+# the points 3,10,17 correspond to three evalution points in the main paper
+p = 10
+n0 = 200
+X0 = rbind(# middle point in each subgroup
+  c(-0.75, 0, runif(p-2, min=-1, max=1)), # 1st
+  c(0.25, -0.5, runif(p-2, min=-1, max=1)), # 2nd
+  c(0.25, 0.5, runif(p-2, min=-1, max=1)), # 3rd
+  # boundary point of subgroup
+  c(-0.55, -0.5, runif(p-2, min=-1, max=1)), # 1st & 2nd 
+  c(-0.45, -0.5, runif(p-2, min=-1, max=1)), # 1st & 2nd
+  c(0.25, 0.05, runif(p-2, min=-1, max=1)), # 2nd & 3rd
+  c(0.25, -0.05, runif(p-2, min=-1, max=1)), # 2nd & 3rd
+  c(-0.55, 0, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  c(-0.45, -0.05, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  c(-0.45, 0.05, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  # far boundary point of subgroup
+  c(-0.60, -0.5, runif(p-2, min=-1, max=1)), # 1st & 2nd
+  c(-0.40, -0.5, runif(p-2, min=-1, max=1)), # 1st & 2nd
+  c(0.25, 0.10, runif(p-2, min=-1, max=1)), # 2nd & 3rd
+  c(0.25, -0.10, runif(p-2, min=-1, max=1)), # 2nd & 3rd
+  c(-0.60, 0, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  c(-0.40, -0.10, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  c(-0.40, 0.10, runif(p-2, min=-1, max=1)), # 1st & 2nd & 3rd
+  matrix(runif((n0-17)*p, min=-1, max=1), nrow=n0-17))
+```
+
+We run the simulation rounds for 200 times, in each round $t\in [200]$, for each method $k\in \{1,2,3\}$, it will yield the estimators $\hat{\mu}_{k,t}$, where $k=1$, $k=2$, $k=3$ represents the PRF, Post, RF, respectively.
+Next, we will plot the point estimates $\hat{\mu}_{k,t}$ for different sample sizes $n$.
+```{r}
+get_estimates <- function(n=1000, pick=3){
+  sim.round.vec = 1:20
+  countfile = 0
+  est.summ.per = matrix(NA, nrow=200, ncol=5)
+  colnames(est.summ.per) = c('post','honest','PRF9','PRF95','RF')
+  for(sim.round in sim.round.vec){
+    filename = paste0('~/Desktop/rf-May/repro0530-MSE/repro-MSE-p10-n',n,'-simround',sim.round,'.rds')
+    if(file.exists(filename)){
+      countfile = countfile + 1
+      result = readRDS(filename)
+      
+      for(isim in 1:10){
+        simidx = (sim.round-1)*10 + isim
+        est.summ.per[simidx,] = result[[1]][[isim]][pick,]
+      }
+    }
+  }
+  PRF_est = est.summ.per[,3]
+  Post_est = est.summ.per[,1]
+  RF_est = est.summ.per[,5]
+  estimates = cbind(PRF_est, Post_est, RF_est)
+  return(estimates)
+}
+```
+
+## n=1000
+```{r}
+estimates = get_estimates(n=1000, pick=10)
+par(mfrow= c(3,1))
+hist(estimates[,1], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='PRF')
+abline(v=-0.2, col = 'red', lwd = 2)
+hist(estimates[,2], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='Post')
+abline(v=-0.2, col = 'red', lwd = 2)
+hist(estimates[,3], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='RF')
+abline(v=-0.2, col = 'red', lwd = 2)
+
+MSE = apply(estimates, MARGIN=2, FUN=function(x) mean((x - (-0.2))^2))
+biases_sq = (apply(estimates, MARGIN=2, FUN=mean) - (-0.2))^2
+vars = apply(estimates, MARGIN=2, FUN=var)
+reports = rbind(MSE, biases_sq, vars)
+print(round(reports, 5))
+```
+## n=2000
+```{r}
+estimates = get_estimates(n=2000, pick=10)
+par(mfrow= c(3,1))
+hist(estimates[,1], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='PRF')
+abline(v=-0.2, col = 'red', lwd = 2)
+hist(estimates[,2], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='Post')
+abline(v=-0.2, col = 'red', lwd = 2)
+hist(estimates[,3], xlim=c(-0.6, 0.6), breaks=40, xlab='estimates', main='RF')
+abline(v=-0.2, col = 'red', lwd = 2)
+
+MSE = apply(estimates, MARGIN=2, FUN=function(x) mean((x - (-0.2))^2))
+biases_sq = (apply(estimates, MARGIN=2, FUN=mean) - (-0.2))^2
+vars = apply(estimates, MARGIN=2, FUN=var)
+reports = rbind(MSE, biases_sq, vars)
+print(round(reports, 5))
+```
+
+
+# Results Interpretation
+Here is a big picture:
+
+  1.  In terms of MSE, our PRF attains the similar performance as Post, and much better than existing random forests.
+  2.  When we dig further into MSE = biases_sq + vars,
+     *   Comparison with Post: we have larger value of biases, but smaller vars
+     *   Comparison with existing RF: their biases and vars are both much larger than us.
+Minge and I discuss a bit in terms of this phenomenon after Zijian leaves yesterday:
+
+  1.  Most times, post-selection method yields good trees for this setting, but about 10% of simulations, post-selection could lead to bad trees. These 90% good trees dominate to lead small bias, but 10% bad trees contribute most to the larger variance.
+  2.  The small bias for the PRF is that we assemble 50 trees each time. Among the 50 trees, a certain portion of them are good and a certain portion do not fit that were. So the average of the 50 predictions have a small bias (E(y|x) = -.2 is the smallest value and, for those trees that do not fit that well, \hat{E(y|x)} are always larger than -.02). Our repro approach only guarantees that we have good trees among the 50.  The numerical results are expected. The average prevented bad prediction, if we have a large portion of good trees among the 50.
+
+Also, the large bias exhibited in the regular RF method also makes sense, even though it is claimed (theoretically showed) that it is consistent. Part of the reason is also that E(y|x) = -.2 is the smallest value.
